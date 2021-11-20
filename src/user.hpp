@@ -20,9 +20,9 @@
 namespace lrb
 {
 
-const uint32_t kMemoryWindow	= 1024;
+const uint32_t kMemoryWindow	= 1024 * 32;
 const uint32_t kUnlabledDataset	= 1024;
-const uint32_t kTrainingDataset	= 128*1024;
+const uint32_t kTrainingDataset	= 1024 * 16;
 const uint32_t kCacheSize		= 1024;
 const uint32_t kSampleEviction	= 64;
 
@@ -42,12 +42,12 @@ typedef struct MapEntry
 {
 	// * 0 - tag is in cache right now
 	// * 1 - tag is not in cache
-	unsigned int not_in_cache	: 1;
+	unsigned int in_cache_flag	: 1;
 	unsigned int position		: 31;
 
-	MapEntry(unsigned int not_in_cache,
+	MapEntry(unsigned int in_cache_flag,
 			unsigned int position) {
-		this->not_in_cache = not_in_cache;
+		this->in_cache_flag = in_cache_flag;
 		this->position = position;
 	}
 } MapEntry;
@@ -275,16 +275,18 @@ private:
 	void EvictFromCache();
 	std::pair<TagType, uint32_t> RankFromCache();
 
-	int CachingRequest();
+	void CachingRequest();
 	int GenerateUnlabledDataset();
 	int GenerateLabledDataset();
 	int GenerateGBMModel();
+
+	void LogCurrentState();
 
 public:
 	User();
 	~User();
 
-	int Simulate();
+	void Simulate();
 
 };
 

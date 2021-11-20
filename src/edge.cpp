@@ -2,9 +2,6 @@
 
 #include <ENCRYPTO_utils/socket.h>
 #include <ENCRYPTO_utils/connection.h>
-#include <iostream>
-#include <unistd.h>
-#include <random>
 using namespace std;
 
 Edge::Edge()
@@ -76,7 +73,7 @@ int main()
 	srand(time(NULL));
 
 	int i(0);
-	while(i < 100)
+	while(i < kEdgeNumber)
 	{
 		Edge newedge;
 		newedge.RunEdge();

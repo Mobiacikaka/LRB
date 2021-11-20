@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+src/edge
+src/user
+.vscode/settings.json
+*.log

@@ -2,6 +2,7 @@
 
 #include <ENCRYPTO_utils/socket.h>
 #include <ENCRYPTO_utils/connection.h>
+#include <fstream>
 #include <chrono>
 
 lrb::User::User()
@@ -12,11 +13,54 @@ lrb::User::~User()
 {
 }
 
-int lrb::User::Simulate()
+void lrb::User::LogCurrentState()
 {
+	std::cerr << "current sequence: " << current_seq << std::endl;                    
+	std::cerr << "current cache size: " << in_cache_meta.size() << std::endl;         
+	std::cerr << "current memory window size: " << memory_window.size() << std::endl; 
+	std::cerr << "tag map size: " << tag_map.size() << std::endl;                     
+
+	std::ofstream file;
+	
+	file.open("in_cache_meta.log", std::ios::out);
+	for(size_t i = 0; i < in_cache_meta.size(); i ++) {
+		file << in_cache_meta[i].tag << "\t" << in_cache_meta[i].past_timestamp << std::endl;
+	}
+	file.close();
+
+	file.open("out_cache_meta.log", std::ios::out);
+	for(size_t i = 0; i < out_cache_meta.size(); i ++) {
+		file << out_cache_meta[i].tag << "\t" << out_cache_meta[i].past_timestamp << std::endl;
+	}
+	file.close();
+
+	file.open("memory_window.log", std::ios::out);
+	for(auto it = memory_window.begin(); it != memory_window.end(); it ++) {
+		file << it->first << "\t" << it->second << std::endl;
+	}
+	file.close();
+
+	file.open("tag_map.log", std::ios::out);
+	for(auto it = tag_map.begin(); it != tag_map.end(); it ++) {
+		file << it->first << "\t" << it->second.in_cache_flag << "\t" << it->second.position << std::endl;
+	}
 }
 
-int lrb::User::CachingRequest()
+void lrb::User::Simulate()
+{
+	try {
+		for(size_t i = 0; i < kEdgeNumber; i ++) {
+			std::cout << "Edge Node: " << i << std::endl;
+			this->CachingRequest();
+		}
+		std::clog << "Request receive: " << obj_req << std::endl
+				<< "Miss times: " << obj_miss << std::endl
+				<< "Hit ratio: " << static_cast<double>(obj_req - obj_miss) / obj_req << std::endl;
+	} catch(char * error) {
+	}
+}
+
+void lrb::User::CachingRequest()
 {
 	std::unique_ptr<CSocket> tsocket;
 	tsocket = Connect(kUserIP, kUserPort);
@@ -33,13 +77,17 @@ int lrb::User::CachingRequest()
 		TagType tmp_tag;
 		tsocket->Receive((void *)&tmp_tag, sizeof(tmp_tag));
 
+		obj_req ++;
 		// tag map lookup
-		bool is_in_cache = this->LookupInMap(tmp_tag);
+		bool in_cache_flag = this->LookupInMap(tmp_tag);
 		// tag map admit
-		if(!is_in_cache) {
+		if(in_cache_flag == false) {
 			this->AdmitToCache(tmp_tag);
+			obj_miss ++;
 		}
 	}
+
+	tsocket->Close();
 }
 
 void lrb::User::TrainModel()
@@ -124,12 +172,12 @@ void lrb::User::ForgetTag()
 {
 	auto it = memory_window.find(current_seq % kMemoryWindow);
 	if(it != memory_window.end()) {
-	// if(memory_window.size() >= kMemoryWindow) {
 		TagType tag = it->second;	
 		auto entry = tag_map.find(tag)->second;
-		assert(entry.not_in_cache == kOutCacheFlag);
+		assert(entry.in_cache_flag == kOutCacheFlag);
 
 		auto &meta = out_cache_meta[entry.position];
+		assert(meta.tag == tag);
 
 		// add to training data
 		if(meta.sample_timestamps.empty() == false) {
@@ -146,10 +194,9 @@ void lrb::User::ForgetTag()
 		}
 
 		// remove from out_cache_meta
-		uint32_t tail = out_cache_meta.size() - 1;
-		if(entry.position != tail) {
-			out_cache_meta[entry.position] = out_cache_meta[tail];
-			tag_map.find(out_cache_meta[entry.position].tag)->second.position = entry.position;
+		if(entry.position < out_cache_meta.size() - 1) {
+			meta = out_cache_meta.back();
+			tag_map.find(meta.tag)->second.position = entry.position;
 		}
 		out_cache_meta.pop_back();
 
@@ -190,11 +237,16 @@ bool lrb::User::LookupInMap(TagType tag)
 
 	auto it = tag_map.find(tag);
 	if(it != tag_map.end()) { // tag has been requested recently
-		unsigned int list_index = it->second.not_in_cache;
+		unsigned int list_index = it->second.in_cache_flag;
 		unsigned int list_pos	= it->second.position;
 
 		TagMeta &meta = list_index == kInCacheFlag ? in_cache_meta[list_pos] : out_cache_meta[list_pos];
 		uint32_t forget_timestamp = meta.past_timestamp % kMemoryWindow;
+		if(meta.tag != tag) {
+			this->LogCurrentState();
+			std::cerr << "in_cache_flag: " << list_index << std::endl;
+			std::cerr << "tag: " << tag << std::endl;
+		}
 		assert(meta.tag == tag);
 
 		// Sample and Add to the training data
@@ -224,7 +276,7 @@ bool lrb::User::LookupInMap(TagType tag)
 			// but it is in the memory window
 			// Update memory window
 			memory_window.erase(forget_timestamp);
-			memory_window.insert(std::make_pair<current_seq % kMemoryWindow, tag>);
+			memory_window.insert(std::make_pair(current_seq % kMemoryWindow, tag));
 		}
 
 		ret = list_index == kInCacheFlag;
@@ -244,27 +296,35 @@ bool lrb::User::LookupInMap(TagType tag)
 void lrb::User::AdmitToCache(TagType tag)
 {
 	auto it = tag_map.find(tag);
-	if(it != tag_map.end()) { // in the out cache meta
+	if(it != tag_map.end()) {
+		// in the out cache meta
+		// bring meta from out_cache_meta to in_cache_meta
 		auto &meta = out_cache_meta[it->second.position];
+		assert(meta.tag == tag);
 		uint32_t forget_timestamp = meta.past_timestamp % kMemoryWindow;
-		// out_cache_meta.erase(out_cache_meta.begin() + it->second.position);
-		memory_window.erase(forget_timestamp);
 		auto lru_it = lru_queue.emplace_front(tag);
 		in_cache_meta.emplace_back(meta, lru_it);
-		it->second = {kInCacheFlag, in_cache_meta.size()-1};
 
-		uint32_t tail = out_cache_meta.size()-1;
-		if(it->second.position < tail) {
-			out_cache_meta[it->second.position] = out_cache_meta[tail];
-			tag_map.find(out_cache_meta[tail].tag)->second.position = it->second.position;
+		memory_window.erase(forget_timestamp);
+		if(it->second.position < out_cache_meta.size() - 1) {
+			meta = out_cache_meta.back();
+			tag_map.find(meta.tag)->second.position = it->second.position;
 		}
 		out_cache_meta.pop_back();
+
+		it->second = {kInCacheFlag, static_cast<uint32_t>(in_cache_meta.size())};
 	}
 	else { // new tag or removed tag
-		tag_map.insert(std::make_pair(tag, MapEntry{kInCacheFlag, in_cache_meta.size()}));
+		tag_map.insert(
+			std::make_pair(
+				tag, MapEntry{
+					kInCacheFlag,
+					static_cast<uint32_t>(in_cache_meta.size())
+				}
+			)
+		);
 		auto lru_it = lru_queue.emplace_front(tag);
 		in_cache_meta.emplace_back(tag, current_seq, lru_it);
-		memory_window.insert(std::make_pair(current_seq % kMemoryWindow, tag));
 	}
 
 	if(in_cache_meta.size() <= kCacheSize) {
@@ -286,6 +346,7 @@ void lrb::User::EvictFromCache()
 	if(kMemoryWindow <= current_seq - meta.past_timestamp) {
 		// * this tag has not been call for a long time
 		// * and it stays in cache, has to be removed
+		assert(0);
 		if(meta.sample_timestamps.empty() == false) {
 			uint32_t future_distance = current_seq - meta.past_timestamp + kMemoryWindow;
 			for(auto sample_timestamp : meta.sample_timestamps) {
@@ -301,7 +362,7 @@ void lrb::User::EvictFromCache()
 
 		auto entry = tag_map.find(meta.tag)->second;
 		tag_map.erase(meta.tag);
-		assert(entry.not_in_cache == kInCacheFlag);
+		assert(entry.in_cache_flag == kInCacheFlag);
 		lru_queue.erase(meta.lru_iterator);
 
 		uint32_t tail = in_cache_meta.size() - 1;
@@ -320,7 +381,10 @@ void lrb::User::EvictFromCache()
 		// Remove from LRU Queue
 		lru_queue.erase(meta.lru_iterator);
 		// change Entry in tag_map
-		tag_map.find(meta.tag)->second = {kOutCacheFlag, out_cache_meta.size()-1};
+		tag_map.find(meta.tag)->second = MapEntry{kOutCacheFlag, static_cast<uint32_t>(out_cache_meta.size()-1)};
+		auto &entry = tag_map.find(meta.tag)->second;
+		entry.in_cache_flag = kOutCacheFlag;
+		entry.position = out_cache_meta.size() - 1;
 		// remove from in_cache_meta
 		uint32_t tail = in_cache_meta.size() - 1;
 		if(evict_candidate.second < tail) {
@@ -335,11 +399,12 @@ std::pair<TagType, uint32_t> lrb::User::RankFromCache()
 {
 	TagType tag = lru_queue.back();
 	auto entry = tag_map.find(tag);
-	assert(entry->second.not_in_cache == kInCacheFlag);
+	assert(entry->second.in_cache_flag == kInCacheFlag);
 	auto &meta = in_cache_meta[entry->second.position];
+	entry->second.position;
 	if(booster == nullptr || 
 		current_seq - meta.past_timestamp >= kMemoryWindow) {
-		return std::make_pair(tag, entry->second.position);
+		return std::make_pair(tag, static_cast<uint32_t>(entry->second.position));
 	}
 
 	// random sample
@@ -415,4 +480,12 @@ std::pair<TagType, uint32_t> lrb::User::RankFromCache()
 	auto max_score_ptr = std::max_element(scores, scores+kSampleEviction);
 	auto max_score_idx = std::distance(scores, max_score_ptr);
 	return std::make_pair(in_cache_meta[max_score_idx].tag, max_score_idx);
+}
+
+int main()
+{
+	lrb::User user;
+	std::srand(time(NULL));
+	user.Simulate();
+	return 0;
 }
