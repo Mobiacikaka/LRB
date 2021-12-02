@@ -4,6 +4,7 @@
 #include <ENCRYPTO_utils/connection.h>
 #include <fstream>
 #include <chrono>
+#include <exception>
 
 lrb::User::User()
 {
@@ -46,22 +47,50 @@ void lrb::User::LogCurrentState()
 	}
 }
 
+#define DEBUG
+
+#ifdef DEBUG
+#define LOG_POSITION() \
+	std::clog << "[LRB] [LOG] Function " << __ASSERT_FUNCTION << " in Line " << __LINE__ << std::endl;
+
+#define FUNC_BEGIN() \
+	try { \
+		// LOG_POSITION();
+
+#define FUNC_END()                                                                    \
+	}                                                                                 \
+	catch (std::exception & e)                                                        \
+	{                                                                                 \
+		std::cerr << "Exception caught: " << e.what() << std::endl;                   \
+		std::cerr << "And error occured. Exiting " << __ASSERT_FUNCTION << std::endl; \
+		throw e;																	  \
+	} \
+	// LOG_POSITION();
+
+#else
+#define LOG_POSITION()
+#define FUNC_BEGIN()
+#define FUNC_END()
+#endif
+
+
 void lrb::User::Simulate()
 {
-	try {
-		for(size_t i = 0; i < kEdgeNumber; i ++) {
-			std::cout << "Edge Node: " << i << std::endl;
-			this->CachingRequest();
-		}
-		std::clog << "Request receive: " << obj_req << std::endl
-				<< "Miss times: " << obj_miss << std::endl
-				<< "Hit ratio: " << static_cast<double>(obj_req - obj_miss) / obj_req << std::endl;
-	} catch(char * error) {
+FUNC_BEGIN();
+	for(size_t i = 0; i < kEdgeNumber; i ++) {
+		std::cout << "Edge Node: " << i << std::endl;
+		this->CachingRequest();
 	}
+	std::clog 
+		<< "Request receive: " << obj_req << std::endl
+		<< "Miss times: " << obj_miss << std::endl
+		<< "Hit ratio: " << static_cast<double>(obj_req - obj_miss) / obj_req << std::endl;
+FUNC_END();
 }
 
 void lrb::User::CachingRequest()
 {
+FUNC_BEGIN();
 	std::unique_ptr<CSocket> tsocket;
 	tsocket = Connect(kUserIP, kUserPort);
 	if(!tsocket) {
@@ -88,10 +117,14 @@ void lrb::User::CachingRequest()
 	}
 
 	tsocket->Close();
+FUNC_END();
 }
 
 void lrb::User::TrainModel()
 {
+FUNC_BEGIN();
+	std::clog << "[LRB] [Warning] Model Start Training" << std::endl;
+
 	++n_retrain;
 	auto time_begin = std::chrono::system_clock::now();
 	std::string training_params = ParseMapToString();
@@ -166,18 +199,18 @@ void lrb::User::TrainModel()
     training_time = 0.95 * training_time +
                     0.05 * std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - time_begin).count();
 
+FUNC_END();
 }
 
 void lrb::User::ForgetTag()
 {
+FUNC_BEGIN();
 	auto it = memory_window.find(current_seq % kMemoryWindow);
 	if(it != memory_window.end()) {
 		TagType tag = it->second;	
 		auto entry = tag_map.find(tag)->second;
-		assert(entry.in_cache_flag == kOutCacheFlag);
-
 		auto &meta = out_cache_meta[entry.position];
-		assert(meta.tag == tag);
+		assert(meta.tag == tag && entry.in_cache_flag == kOutCacheFlag);
 
 		// add to training data
 		if(meta.sample_timestamps.empty() == false) {
@@ -203,10 +236,12 @@ void lrb::User::ForgetTag()
 		tag_map.erase(tag);
 		memory_window.erase(current_seq % kMemoryWindow);
 	}
+FUNC_END();
 }
 
 void lrb::User::Sample()
 {
+FUNC_BEGIN();
 	size_t rand_idx = distribution(generator);
 	size_t n_in = in_cache_meta.size();
 	size_t n_out = out_cache_meta.size();
@@ -224,10 +259,12 @@ void lrb::User::Sample()
 		auto &meta = out_cache_meta[pos];
 		meta.sample_timestamps.emplace_back(current_seq);
 	}
+FUNC_END();
 }
 
 bool lrb::User::LookupInMap(TagType tag)
 {
+FUNC_BEGIN();
 	bool ret;
 	++current_seq;
 
@@ -242,11 +279,6 @@ bool lrb::User::LookupInMap(TagType tag)
 
 		TagMeta &meta = list_index == kInCacheFlag ? in_cache_meta[list_pos] : out_cache_meta[list_pos];
 		uint32_t forget_timestamp = meta.past_timestamp % kMemoryWindow;
-		if(meta.tag != tag) {
-			this->LogCurrentState();
-			std::cerr << "in_cache_flag: " << list_index << std::endl;
-			std::cerr << "tag: " << tag << std::endl;
-		}
 		assert(meta.tag == tag);
 
 		// Sample and Add to the training data
@@ -275,8 +307,10 @@ bool lrb::User::LookupInMap(TagType tag)
 			// tag is not in the cache
 			// but it is in the memory window
 			// Update memory window
+			assert(memory_window.find(forget_timestamp) != memory_window.end());
 			memory_window.erase(forget_timestamp);
 			memory_window.insert(std::make_pair(current_seq % kMemoryWindow, tag));
+			assert(memory_window.find(current_seq % kMemoryWindow) != memory_window.end());
 		}
 
 		ret = list_index == kInCacheFlag;
@@ -290,11 +324,13 @@ bool lrb::User::LookupInMap(TagType tag)
 	}
 
 	return ret;
+FUNC_END();
 }
 
 // * \brief Admit tag to in_cache_meta
 void lrb::User::AdmitToCache(TagType tag)
 {
+FUNC_BEGIN();
 	auto it = tag_map.find(tag);
 	if(it != tag_map.end()) {
 		// in the out cache meta
@@ -336,17 +372,18 @@ void lrb::User::AdmitToCache(TagType tag)
 	while(in_cache_meta.size() > kCacheSize) {
 		this->EvictFromCache();
 	}
+FUNC_END();
 }
 
 void lrb::User::EvictFromCache()
 {
-	auto evict_candidate = this->RankFromCache();
+FUNC_BEGIN();
+	auto evict_candidate = this->RankFromCache(); // {tag, position in in_cache_meta}
 	auto &meta = in_cache_meta[evict_candidate.second];
 
 	if(kMemoryWindow <= current_seq - meta.past_timestamp) {
 		// * this tag has not been call for a long time
 		// * and it stays in cache, has to be removed
-		assert(0);
 		if(meta.sample_timestamps.empty() == false) {
 			uint32_t future_distance = current_seq - meta.past_timestamp + kMemoryWindow;
 			for(auto sample_timestamp : meta.sample_timestamps) {
@@ -361,8 +398,9 @@ void lrb::User::EvictFromCache()
 		}
 
 		auto entry = tag_map.find(meta.tag)->second;
-		tag_map.erase(meta.tag);
 		assert(entry.in_cache_flag == kInCacheFlag);
+
+		tag_map.erase(meta.tag);
 		lru_queue.erase(meta.lru_iterator);
 
 		uint32_t tail = in_cache_meta.size() - 1;
@@ -393,10 +431,12 @@ void lrb::User::EvictFromCache()
 		}
 		in_cache_meta.pop_back();
 	}
+FUNC_END();
 }
 
 std::pair<TagType, uint32_t> lrb::User::RankFromCache()
 {
+FUNC_BEGIN();
 	TagType tag = lru_queue.back();
 	auto entry = tag_map.find(tag);
 	assert(entry->second.in_cache_flag == kInCacheFlag);
@@ -455,6 +495,7 @@ std::pair<TagType, uint32_t> lrb::User::RankFromCache()
 	std::chrono::system_clock::time_point time_begin =
 		std::chrono::system_clock::now();
 	std::string prediction_params = this->ParseMapToString();
+	// LOG_POSITION();
 	LGBM_BoosterPredictForCSR(
 		booster,
 		static_cast<void *>(indptr.data()),
@@ -462,7 +503,7 @@ std::pair<TagType, uint32_t> lrb::User::RankFromCache()
 		indices.data(),
 		static_cast<void *>(data.data()),
 		C_API_DTYPE_FLOAT64,
-		kSampleEviction + 1,
+		indptr.size(),
 		data.size(),
 		kMaxFeatures,
 		C_API_PREDICT_NORMAL,
@@ -472,6 +513,7 @@ std::pair<TagType, uint32_t> lrb::User::RankFromCache()
 		&len,
 		scores
 	);
+	// LOG_POSITION();
 	std::chrono::system_clock::time_point time_end =
 		std::chrono::system_clock::now();
 	prediction_time = 0.95 * prediction_time + 
@@ -480,6 +522,7 @@ std::pair<TagType, uint32_t> lrb::User::RankFromCache()
 	auto max_score_ptr = std::max_element(scores, scores+kSampleEviction);
 	auto max_score_idx = std::distance(scores, max_score_ptr);
 	return std::make_pair(in_cache_meta[max_score_idx].tag, max_score_idx);
+FUNC_END();
 }
 
 int main()

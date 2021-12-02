@@ -21,9 +21,8 @@ namespace lrb
 {
 
 const uint32_t kMemoryWindow	= 1024 * 32;
-const uint32_t kUnlabledDataset	= 1024;
-const uint32_t kTrainingDataset	= 1024 * 16;
-const uint32_t kCacheSize		= 1024;
+const uint32_t kTrainingDataset	= 1024 * 64;
+const uint32_t kCacheSize		= 1024 * 16;
 const uint32_t kSampleEviction	= 64;
 
 uint32_t current_seq			= -1;
@@ -255,6 +254,7 @@ private:
             {"bagging_fraction", "0.8"},
             {"learning_rate",    "0.1"},
             {"verbosity",        "0"},
+			{"force_row_wise",	 "true"},
     };
 	std::string ParseMapToString() {
 		std::string result;

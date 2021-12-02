@@ -9,7 +9,7 @@
 
 const char* kUserIP				= "127.0.0.1";
 const int kUserPort				= 6666;
-const int kEdgeNumber			= 100;
+const int kEdgeNumber			= 1000;
 
 #define TagType uint64_t
 
