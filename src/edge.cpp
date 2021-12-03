@@ -2,6 +2,10 @@
 
 #include <ENCRYPTO_utils/socket.h>
 #include <ENCRYPTO_utils/connection.h>
+#include <string>
+#include <unistd.h>
+#include <random>
+#include <fstream>
 using namespace std;
 
 Edge::Edge()
@@ -12,39 +16,27 @@ Edge::~Edge()
 {
 }
 
-int Edge::RunEdge()
+void Edge::RunEdge(int edge_no)
 {
-	this->GenerateEdgeBlock();
+	this->ReadEdgeBlock(edge_no);
 	this->SendEdgeBlock();
-
-	return 0;
 }
 
-int Edge::GenerateEdgeBlock()
+void Edge::ReadEdgeBlock(int edge_no)
 {
-	int tag_list_size(0);
-	int rnd_sign(0);
+	string filename = "../datasets/dataset_" + to_string(edge_no) + ".txt";
+	ifstream file(filename, ios::in);
 
-	if(rand() % 2 == 0) rnd_sign = 1;
-	else rnd_sign = -1;
-
-	// taglistsize range from 9*kEdgeSize/10 to 11*kEdgeSize/10
-	tag_list_size = kEdgeSize + rnd_sign * (rand() % (kEdgeSize/10));
-
-	this->tag_list.resize(tag_list_size);
-
-	random_device rd;
-	mt19937_64 gen(rd());
-	uniform_int_distribution<TagType> dist;
-	for(size_t i = 0; i < tag_list_size; i ++)
-	{
-		tag_list[i] = dist(gen) & kTagMask;
+	while(!file.eof()) {
+		TagType tag;
+		file >> tag;
+		this->tag_list.insert(tag);
 	}
 
-	return 0;
+	file.close();
 }
 
-int Edge::SendEdgeBlock()
+void Edge::SendEdgeBlock()
 {
 	unique_ptr<CSocket> tsocket;
 
@@ -57,14 +49,12 @@ int Edge::SendEdgeBlock()
 
 	size_t tag_list_size = this->tag_list.size();
 	tsocket->Send((void *)&tag_list_size, sizeof(tag_list_size));
-	for(size_t i = 0; i < tag_list_size; i ++)
-	{
-		tsocket->Send((void *)&tag_list[i], sizeof(tag_list[i]));
+	for(auto it = tag_list.begin(); it != tag_list.end(); it ++) {
+		TagType tag = *it;
+		tsocket->Send((void *)&tag, sizeof(TagType));
 	}
 
 	tsocket->Close();
-
-	return 0;
 }
 
 int main()
@@ -76,7 +66,7 @@ int main()
 	while(i < kEdgeNumber)
 	{
 		Edge newedge;
-		newedge.RunEdge();
+		newedge.RunEdge(i);
 		usleep(rand() % kSleepTime);
 		++i;
 	}
