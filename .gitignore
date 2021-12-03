@@ -30,8 +30,10 @@
 *.exe
 *.out
 *.app
-src/edge
-src/user
+edge
+user
+user_random
+user_lru
 .vscode/settings.json
 *.log
 datasets/*
