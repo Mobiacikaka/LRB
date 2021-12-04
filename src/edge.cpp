@@ -24,7 +24,7 @@ void Edge::RunEdge(int edge_no)
 
 void Edge::ReadEdgeBlock(int edge_no)
 {
-	string filename = "../datasets/dataset_" + to_string(edge_no) + ".txt";
+	string filename = "datasets/dataset_" + to_string(edge_no) + ".txt";
 	ifstream file(filename, ios::in);
 
 	while(!file.eof()) {
@@ -67,7 +67,7 @@ int main()
 	{
 		Edge newedge;
 		newedge.RunEdge(i);
-		usleep(rand() % kSleepTime);
+		// usleep(rand() % kSleepTime);
 		++i;
 	}
 

@@ -4,7 +4,7 @@ import os
 def generate_dataset(n_of_dataset: int, srv_no: int):
     mask = 0xFFFF
     mu = mask >> 1
-    sigma = 1024 * 1
+    sigma = 1024 * 16
     s = npy.random.normal(mu, sigma, n_of_dataset)
     s = s.astype(int)
     s = npy.asarray([e % mask for e in s])
