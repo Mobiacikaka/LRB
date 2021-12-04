@@ -73,12 +73,19 @@ void lrb::User::LogCurrentState()
 #define FUNC_END()
 #endif
 
-
 void lrb::User::Simulate()
 {
 FUNC_BEGIN();
+
+#ifdef USE_MODE
+	std::clog << "User using mode: " << USE_MODE << std::endl;
+#else
+	std::cerr << "USE_MODE Undefined! System Exiting!" << std::endl;
+	return;
+#endif
+
 	for(size_t i = 0; i < kEdgeNumber; i ++) {
-		std::cout << "Edge Node: " << i << std::endl;
+		// std::cout << "Edge Node: " << i << std::endl;
 		this->CachingRequest();
 	}
 	std::clog 
@@ -213,6 +220,7 @@ FUNC_BEGIN();
 		assert(meta.tag == tag && entry.in_cache_flag == kOutCacheFlag);
 
 		// add to training data
+#if USE_MODE == 0
 		if(meta.sample_timestamps.empty() == false) {
 			uint32_t future_distance = kMemoryWindow * 2;
 			for(auto sample_timestamp : meta.sample_timestamps) {
@@ -225,6 +233,7 @@ FUNC_BEGIN();
 			meta.sample_timestamps.clear();
 			meta.sample_timestamps.shrink_to_fit();
 		}
+#endif
 
 		// remove from out_cache_meta
 		if(entry.position < out_cache_meta.size() - 1) {
@@ -282,6 +291,7 @@ FUNC_BEGIN();
 		assert(meta.tag == tag);
 
 		// Sample and Add to the training data
+#if USE_MODE == 0
 		if(meta.sample_timestamps.empty() == false) {
 			for(auto sample_timestamp : meta.sample_timestamps) {
 				uint32_t future_distance = current_seq - sample_timestamp;
@@ -294,6 +304,7 @@ FUNC_BEGIN();
 			meta.sample_timestamps.clear();
 			meta.sample_timestamps.shrink_to_fit();
 		}
+#endif
 
 		meta.Update(current_seq);
 
@@ -384,6 +395,7 @@ FUNC_BEGIN();
 	if(kMemoryWindow <= current_seq - meta.past_timestamp) {
 		// * this tag has not been call for a long time
 		// * and it stays in cache, has to be removed
+#if USE_MODE == 0
 		if(meta.sample_timestamps.empty() == false) {
 			uint32_t future_distance = current_seq - meta.past_timestamp + kMemoryWindow;
 			for(auto sample_timestamp : meta.sample_timestamps) {
@@ -396,6 +408,7 @@ FUNC_BEGIN();
 			meta.sample_timestamps.clear();
 			meta.sample_timestamps.shrink_to_fit();
 		}
+#endif
 
 		auto entry = tag_map.find(meta.tag)->second;
 		assert(entry.in_cache_flag == kInCacheFlag);
@@ -439,9 +452,14 @@ std::pair<TagType, uint32_t> lrb::User::RankFromCache()
 FUNC_BEGIN();
 	TagType tag = lru_queue.back();
 	auto entry = tag_map.find(tag);
+#if USE_METHOD == 1
+	return std::make_pair(tag, static_cast<uint32_t>(entry->second.position));
+#elif USE_METHOD == 2
+	uint32_t position = rand() & in_cache_meta.size();
+	return std::make_pair(in_cache_meta[position].tag, position);
+#endif
 	assert(entry->second.in_cache_flag == kInCacheFlag);
 	auto &meta = in_cache_meta[entry->second.position];
-	entry->second.position;
 	if(booster == nullptr || 
 		current_seq - meta.past_timestamp >= kMemoryWindow) {
 		return std::make_pair(tag, static_cast<uint32_t>(entry->second.position));

@@ -4,14 +4,14 @@ all:
 	make user
 	make edge
 
-user:
-	g++ -g -o user src/user.cpp -lencrypto_utils -lboost_system -lpthread -l _lightgbm
-
 edge:
 	g++ -g -o edge src/edge.cpp -lencrypto_utils -lboost_system -lpthread
 
-user-random:
-	g++ -g -o user_random src/user_random.cpp -lencrypto_utils -lboost_system -pthread
+user:
+	g++ -g -o user src/user.cpp -lencrypto_utils -lboost_system -lpthread -l _lightgbm -DUSE_MODE=0
 
-user-lru:
-	g++ -g -o user_lru src/user_lru.cpp -lencrypto_utils -lboost_system -pthread
+lru:
+	g++ -g -o user src/user.cpp -lencrypto_utils -lboost_system -lpthread -l _lightgbm -DUSE_MODE=1
+
+random:
+	g++ -g -o user src/user.cpp -lencrypto_utils -lboost_system -lpthread -l _lightgbm -DUSE_MODE=2

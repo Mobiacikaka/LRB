@@ -17,6 +17,13 @@
 
 #include <LightGBM/c_api.h>
 
+/* 
+ * 0 - LRB
+ * 1 - LRU
+ * 2 - RANDOM
+ */
+// #define USE_METHOD 0
+
 namespace lrb
 {
 
