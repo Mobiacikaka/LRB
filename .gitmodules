@@ -1,0 +1,6 @@
+[submodule "libs/ENCRYPTO_utils"]
+	path = libs/ENCRYPTO_utils
+	url = https://github.com/encryptogroup/ENCRYPTO_utils.git
+[submodule "libs/LightGBM"]
+	path = libs/LightGBM
+	url = https://github.com/microsoft/LightGBM.git
