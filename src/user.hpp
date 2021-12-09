@@ -27,9 +27,9 @@
 namespace lrb
 {
 
-const uint32_t kMemoryWindow	= 1024 * 32;
-const uint32_t kTrainingDataset	= 1024 * 64;
-const uint32_t kCacheSize		= 1024 * 16;
+const uint32_t kMemoryWindow	= 1024 * 8;
+const uint32_t kTrainingDataset	= 1024 * 18;
+const uint32_t kCacheSize		= 1024 * 1;
 const uint32_t kSampleEviction	= 64;
 
 uint32_t current_seq			= -1;

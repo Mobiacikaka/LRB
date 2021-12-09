@@ -77,10 +77,10 @@ void lrb::User::Simulate()
 {
 FUNC_BEGIN();
 
-#ifdef USE_MODE
-	std::clog << "User using mode: " << USE_MODE << std::endl;
+#ifdef USE_METHOD
+	std::clog << "User using mode: " << USE_METHOD << std::endl;
 #else
-	std::cerr << "USE_MODE Undefined! System Exiting!" << std::endl;
+	std::cerr << "USE_METHOD Undefined! System Exiting!" << std::endl;
 	return;
 #endif
 
@@ -200,11 +200,11 @@ FUNC_BEGIN();
         auto diff = result[i] - training_data.labels[i];
         se += diff * diff;
     }
-    training_loss = training_loss * 0.99 + se / kTrainingDataset * 0.01;
+    /* training_loss = training_loss * 0.99 + se / kTrainingDataset * 0.01; */
 
     LGBM_DatasetFree(dataset_handle);
-    training_time = 0.95 * training_time +
-                    0.05 * std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - time_begin).count();
+    /* training_time = 0.95 * training_time + */
+    /*                 0.05 * std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - time_begin).count(); */
 
 FUNC_END();
 }
@@ -220,7 +220,7 @@ FUNC_BEGIN();
 		assert(meta.tag == tag && entry.in_cache_flag == kOutCacheFlag);
 
 		// add to training data
-#if USE_MODE == 0
+#if USE_METHOD == 0
 		if(meta.sample_timestamps.empty() == false) {
 			uint32_t future_distance = kMemoryWindow * 2;
 			for(auto sample_timestamp : meta.sample_timestamps) {
@@ -291,7 +291,7 @@ FUNC_BEGIN();
 		assert(meta.tag == tag);
 
 		// Sample and Add to the training data
-#if USE_MODE == 0
+#if USE_METHOD == 0
 		if(meta.sample_timestamps.empty() == false) {
 			for(auto sample_timestamp : meta.sample_timestamps) {
 				uint32_t future_distance = current_seq - sample_timestamp;
@@ -331,7 +331,9 @@ FUNC_BEGIN();
 	}
 
 	if(this->is_sampling == true) {
+#if USE_METHOD == 0
 		this->Sample();
+#endif
 	}
 
 	return ret;
@@ -395,7 +397,7 @@ FUNC_BEGIN();
 	if(kMemoryWindow <= current_seq - meta.past_timestamp) {
 		// * this tag has not been call for a long time
 		// * and it stays in cache, has to be removed
-#if USE_MODE == 0
+#if USE_METHOD == 0
 		if(meta.sample_timestamps.empty() == false) {
 			uint32_t future_distance = current_seq - meta.past_timestamp + kMemoryWindow;
 			for(auto sample_timestamp : meta.sample_timestamps) {
@@ -455,7 +457,7 @@ FUNC_BEGIN();
 #if USE_METHOD == 1
 	return std::make_pair(tag, static_cast<uint32_t>(entry->second.position));
 #elif USE_METHOD == 2
-	uint32_t position = rand() & in_cache_meta.size();
+	uint32_t position = static_cast<uint32_t>(rand()) % in_cache_meta.size();
 	return std::make_pair(in_cache_meta[position].tag, position);
 #endif
 	assert(entry->second.in_cache_flag == kInCacheFlag);
