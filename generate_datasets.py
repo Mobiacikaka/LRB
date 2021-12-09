@@ -1,10 +1,11 @@
 import numpy as npy
 import os
 
-def generate_dataset(n_of_dataset: int, srv_no: int):
-    mask = 0xFFFF
-    mu = mask >> 1
-    sigma = 1024 * 16
+def generate_dataset(n_of_dataset: int, srv_no: int, server_number: int):
+    mask = 0xFFF
+    # mu = mask >> 1
+    mu = mask * srv_no / server_number
+    sigma = 256
     s = npy.random.normal(mu, sigma, n_of_dataset)
     s = s.astype(int)
     s = npy.asarray([e % mask for e in s])
@@ -19,4 +20,4 @@ if __name__ == '__main__':
     rng = base_n / 10
     for srv_no in range(server_number):
         n_of_dataset = npy.random.randint(base_n-rng, base_n+rng)
-        generate_dataset(n_of_dataset, srv_no)
+        generate_dataset(n_of_dataset, srv_no, server_number)
