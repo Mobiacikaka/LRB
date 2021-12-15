@@ -37,3 +37,4 @@ user_lru
 .vscode/settings.json
 *.log
 datasets/*
+results/*
