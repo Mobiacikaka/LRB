@@ -27,9 +27,7 @@
 namespace lrb
 {
 
-const uint32_t kMemoryWindow	= 1024 * 8;
-const uint32_t kTrainingDataset	= 1024 * 18;
-const uint32_t kCacheSize		= 1024 * 1;
+const uint32_t kMemoryWindow	= 1024 * 16;
 const uint32_t kSampleEviction	= 64;
 
 uint32_t current_seq			= -1;
@@ -175,11 +173,13 @@ public:
 	std::vector<int32_t> indices;	// COL_INDEX
 	std::vector<int32_t> indptr;	// ROW_INDEX
 
-	TrainingData() {
-		labels.reserve(kTrainingDataset);
-		data.reserve(kTrainingDataset * kMaxFeatures);
-		indices.reserve(kTrainingDataset * kMaxFeatures);
-		indptr.reserve(kTrainingDataset + 1);
+	TrainingData() {}
+
+	TrainingData(const size_t training_data_size) {
+		labels.reserve(training_data_size);
+		data.reserve(training_data_size * kMaxFeatures);
+		indices.reserve(training_data_size * kMaxFeatures);
+		indptr.reserve(training_data_size + 1);
 		indptr.emplace_back(0);
 	}
 
@@ -230,6 +230,9 @@ public:
 class User
 {
 private:
+	const size_t kCacheSize;
+	const size_t kTrainingDataset;
+
 	size_t obj_req = 0, obj_miss = 0;
 	size_t n_force_eviction = 0;
 	bool is_sampling = false;
@@ -260,7 +263,7 @@ private:
             {"bagging_freq",     "5"},
             {"bagging_fraction", "0.8"},
             {"learning_rate",    "0.1"},
-            {"verbosity",        "0"},
+            {"verbosity",        "-1"},
 			{"force_row_wise",	 "true"},
     };
 	std::string ParseMapToString() {
@@ -291,6 +294,7 @@ private:
 
 public:
 	User();
+	User(const size_t , const size_t);
 	~User();
 
 	void Simulate();

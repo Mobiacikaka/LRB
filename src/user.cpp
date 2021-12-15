@@ -6,8 +6,11 @@
 #include <chrono>
 #include <exception>
 
-lrb::User::User()
+lrb::User::User(const size_t cache_size, const size_t training_data_size):
+	kCacheSize(cache_size),
+	kTrainingDataset(training_data_size)
 {
+	training_data = TrainingData(kTrainingDataset);
 }
 
 lrb::User::~User()
@@ -547,8 +550,19 @@ FUNC_END();
 
 int main()
 {
-	lrb::User user;
+	size_t cache_size(0);
+	std::cin >> cache_size;
+
+	size_t training_data_size(0);
+	std::cin >> training_data_size;
+
+	std::clog << "cache size: " << cache_size << std::endl
+			<< "training data size: " << training_data_size << std::endl;
+
+	lrb::User user(cache_size, training_data_size);
 	std::srand(time(NULL));
 	user.Simulate();
+
+	std::clog << std::endl;
 	return 0;
 }

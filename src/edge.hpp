@@ -7,11 +7,8 @@
 #include <iostream>
 #include <vector>
 
-// const int kSleepTime(1); // seconds
 const int kSleepTime(100); // milliseconds
 const int kEdgeSize(1024);
-// const uint64_t kTagMask(0xFFFFFFFFFFFFFFFF);
-const uint64_t kTagMask(0xFFFF);
 
 class Edge
 {

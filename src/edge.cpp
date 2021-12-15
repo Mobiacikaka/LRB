@@ -59,7 +59,7 @@ void Edge::SendEdgeBlock()
 
 int main()
 {
-	clog << "Starting up Edge nodes" << endl;
+	/* clog << "Starting up Edge nodes" << endl; */
 	srand(time(NULL));
 
 	int i(0);
