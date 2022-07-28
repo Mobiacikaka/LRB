@@ -261,7 +261,7 @@ FUNC_BEGIN();
 	std::bernoulli_distribution distribution_from_in(static_cast<double>(n_in) / (n_in + n_out));
 	bool is_from_in = distribution_from_in(generator);
 
-	if(is_from_in == kInCacheFlag) {
+	if(is_from_in == kInCacheFlag || !n_out) {
 		uint32_t pos = rand_idx % static_cast<uint32_t>(n_in);
 		auto &meta = in_cache_meta[pos];
 		meta.sample_timestamps.emplace_back(current_seq);
